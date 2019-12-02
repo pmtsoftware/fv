@@ -1,63 +1,79 @@
-module Main exposing (..)
+module Main exposing (main)
 
 import Browser
-import Html exposing (Html, button, div, text)
-import Html.Events exposing (onClick)
+import Html exposing (Html, div, text)
 import Material.Typography as Typography
-import Material.Button exposing (buttonConfig, raisedButton)
+import Material.TabBar exposing (tab, tabBar, tabBarConfig, tabConfig)
+import Settings as Settings exposing (Model, Msg, default, view, update )
 
-main =
-    Browser.sandbox { init = 0, update = update, view = view }
+type alias Model = 
+    { counter : Int 
+    , activeTab : Tab
+    , settings : Settings.Model
+    }
 
-type alias Settings =
-    { name : String
-    , street : String
-    , zip_code : String
-    , city : String
-    , account : String }
+type Tab = Invoices | Customers | Settings
 
-type alias Buyer = 
-    { name : String
-    , vatin : String {- NIP in Poland -}
-    , address : String
-    , zip_code : String
-    , city : String }
+type Msg 
+    = TabChanged Tab 
+    | SettingsChanged Settings.Msg
+    | Inc 
+    | Dec
 
-type alias Invoice = 
-    { number : String
-    , issue_date : String
-    , supply_date : String
-    , gross_value : Float
-    , net_value : Float
-    , remarks : String
-    , items : List InvoiceItems }
-
-type alias InvoiceItems =
-    { name : String
-    , seq : Int
-    , quantity : String
-    , unit : String 
-    , vat_rate : Float
-    , gross_price : Float
-    , net_price : Float
-    , gross_value : Float
-    , net_value : Float }
-
-type Msg = Inc | Dec
-
+update : Msg -> Model -> Model
 update msg model = 
     case msg of 
-        Inc -> model + 11
-        Dec -> model - 1
+        Inc -> {model | counter = model.counter + 11}
+        Dec -> {model | counter = model.counter - 1}
+        TabChanged tab -> { model | activeTab = tab }
+        SettingsChanged settingsMsg -> { model | settings = Settings.update settingsMsg model.settings }
 
+topBar : Html Msg
+topBar = tabBar tabBarConfig
+            [ tab
+                { tabConfig
+                    | active = True
+                    , onClick = Just (TabChanged Invoices)
+                }
+                { label = "Faktury", icon = Nothing }
+            , tab 
+                { tabConfig
+                    | active = False
+                    , onClick = Just (TabChanged Customers)
+                }
+                { label = "Klienci", icon = Nothing }
+            , tab
+                { tabConfig 
+                    | active = False
+                    , onClick = Just (TabChanged Settings)
+                }
+                { label =  "Ustawienia", icon = Nothing }
+            ]
+
+tabContent : Model -> Html Msg
+tabContent model = 
+    let tab = model.activeTab
+        in case tab of
+            Invoices -> text "Invoices"
+            Customers -> text "Customers"
+            Settings -> Html.map (\msg -> SettingsChanged msg) (Settings.view model.settings) 
+
+view : Model -> Html Msg
 view model = 
     div [ Typography.typography ]
-        [ raisedButton { buttonConfig 
-                            | onClick = Just Dec
-                            , icon = Just "favorite" } 
-                        "Decrement"
-        , div [] [ text (String.fromInt model) ]
-        , raisedButton { buttonConfig 
-                            | onClick = Just Inc } 
-                        "Increment"
+        [ topBar
+        , tabContent model
         ]
+
+init : Model
+init = { counter = 0
+       , activeTab = Invoices
+       , settings = Settings.default
+       }
+
+main : Program () Model Msg
+main =
+    Browser.sandbox 
+        { init = init 
+        , update = update
+        , view = view }
