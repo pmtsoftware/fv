@@ -5,4 +5,4 @@ build:
 
 clean:
 	rm -f *.js
-	rm -rf ./elm-stuff/0.19.0
+	rm -rf ./elm-stuff/
