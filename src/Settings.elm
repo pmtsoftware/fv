@@ -7,7 +7,7 @@ module Settings
         , update
         )
 
-import Html exposing (Html, div)
+import Html exposing (Html, div, text)
 import Material.TextField exposing (textField, textFieldConfig)
 
 type alias Model =
@@ -45,7 +45,8 @@ view settings =
         [ textField
             { textFieldConfig
                 | label = Just "Nazwa"
-                , value = Just settings.name
+                , value = settings.name
                 , onInput = Just NameChanged 
             }
+        , div [] [ text settings.name ]
         ]
