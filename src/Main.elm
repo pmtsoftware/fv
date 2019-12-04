@@ -28,23 +28,23 @@ update msg model =
         TabChanged tab -> { model | activeTab = tab }
         SettingsChanged settingsMsg -> { model | settings = Settings.update settingsMsg model.settings }
 
-topBar : Html Msg
-topBar = tabBar tabBarConfig
+topBar : Tab -> Html Msg
+topBar active = tabBar tabBarConfig
             [ tab
                 { tabConfig
-                    | active = True
+                    | active = active == Invoices
                     , onClick = Just (TabChanged Invoices)
                 }
                 { label = "Faktury", icon = Nothing }
             , tab 
                 { tabConfig
-                    | active = False
+                    | active = active == Customers
                     , onClick = Just (TabChanged Customers)
                 }
                 { label = "Klienci", icon = Nothing }
             , tab
                 { tabConfig 
-                    | active = False
+                    | active = active == Settings
                     , onClick = Just (TabChanged Settings)
                 }
                 { label =  "Ustawienia", icon = Nothing }
@@ -61,7 +61,7 @@ tabContent model =
 view : Model -> Html Msg
 view model = 
     div [ Typography.typography ]
-        [ topBar
+        [ topBar model.activeTab
         , tabContent model
         ]
 
