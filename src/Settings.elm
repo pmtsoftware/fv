@@ -7,11 +7,14 @@ module Settings
         , update
         )
 
-import Html exposing (Html, div)
-import Html.Attributes exposing (style)
-import Material.TextField exposing (textField, textFieldConfig)
-import Material.LayoutGrid as Grid exposing (layoutGrid, layoutGridInner, layoutGridCell)
-import Material.HelperText exposing ( helperLine, characterCounter )
+import Element exposing 
+    ( Element
+    , column 
+    )
+import Element.Input exposing 
+    ( text
+    , labelLeft 
+    )
 
 type alias Model =
     { name : String
@@ -50,72 +53,49 @@ update msg settings
         AccountChanged val -> { settings | account = val }
         VatinChanged val -> { settings | vatin = val }
 
-inputText : String -> String -> (String -> Msg) -> Maybe Int -> Html Msg
-inputText label val toMsg max =
-    textField
-        { textFieldConfig 
-            | label = Just label 
-            , value = val
-            , outlined = True
-            , onInput = Just toMsg 
-            , maxLength = max
-            , additionalAttributes = [ style "width" "100%" ]
+input : String -> String -> (String -> msg) -> Element msg
+input caption val msg =
+    text [] 
+        { onChange = msg
+        , text = val
+        , placeholder = Nothing
+        , label = labelLeft [] <| Element.text caption
         }
 
-nameField : Model -> Html Msg
+nameField : Model -> Element Msg
 nameField  model = 
-    inputText "Nazwa" model.name NameChanged Nothing
+    input "Nazwa" model.name NameChanged
 
-streetField : Model -> Html Msg
+streetField : Model -> Element Msg
 streetField model = 
-    inputText "Ulica" model.street StreetChanged Nothing
+    input "Ulica" model.street StreetChanged
 
-zipCodeField : Model -> Html Msg
+zipCodeField : Model -> Element Msg
 zipCodeField model = 
-    inputText "Kod pocztowy" model.zip_code ZipCodeChanged Nothing
+    input "Kod pocztowy" model.zip_code ZipCodeChanged
 
-cityField : Model -> Html Msg
+cityField : Model -> Element Msg
 cityField model = 
-    inputText "Miejscowosc" model.city CityChanged Nothing
+    input "Miejscowosc" model.city CityChanged
 
-accountField : Model -> Html Msg
+accountField : Model -> Element Msg
 accountField model = 
-    inputText "Numer konta bankowego" model.account AccountChanged (Just 26)
+    input "Numer konta bankowego" model.account AccountChanged
 
-vatinField : Model -> Html Msg
+vatinField : Model -> Element Msg
 vatinField model = 
-    inputText "VAT" model.vatin VatinChanged Nothing
+    input "VAT" model.vatin VatinChanged
 
-view : Model -> Html Msg
-view settings = 
-    div []
-        [ layoutGrid []
-            [ layoutGridInner []
-                [ layoutGridCell [ Grid.span12 ] []
+form : Model -> Element Msg
+form settings = 
+    column []
+        [ nameField settings
+        , streetField settings
+        , zipCodeField settings
+        , cityField settings
+        , vatinField settings
+        , accountField settings
+        ] 
 
-                , layoutGridCell [ Grid.span4 ] []
-                , layoutGridCell [ Grid.span4 ] [ nameField settings ]
-                , layoutGridCell [ Grid.span4 ] []
-
-                , layoutGridCell [ Grid.span4 ] []
-                , layoutGridCell [ Grid.span4 ] [ streetField settings ]
-                , layoutGridCell [ Grid.span4 ] []
-
-                , layoutGridCell [ Grid.span4 ] []
-                , layoutGridCell [ Grid.span4 ] [ zipCodeField settings ]
-                , layoutGridCell [ Grid.span4 ] []
-
-                , layoutGridCell [ Grid.span4 ] []
-                , layoutGridCell [ Grid.span4 ] [ cityField settings ]
-                , layoutGridCell [ Grid.span4 ] []
-
-                , layoutGridCell [ Grid.span4 ] []
-                , layoutGridCell [ Grid.span4 ] [ vatinField settings ]
-                , layoutGridCell [ Grid.span4 ] []
-
-                , layoutGridCell [ Grid.span4 ] []
-                , layoutGridCell [ Grid.span4 ] [ accountField settings, helperLine [] [ characterCounter [] ] ]
-                , layoutGridCell [ Grid.span4 ] []
-                ]
-            ]
-        ]
+view : Model -> Element Msg
+view settings = form settings

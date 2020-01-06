@@ -1,12 +1,5 @@
 module Data exposing (..)
 
-type alias Buyer = 
-    { name : String
-    , vatin : String {- NIP in Poland -}
-    , address : String
-    , zip_code : String
-    , city : String }
-
 type alias Invoice = 
     { number : String
     , issue_date : String
