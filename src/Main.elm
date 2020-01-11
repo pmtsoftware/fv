@@ -6,8 +6,11 @@ import Element exposing
     ( Element
     , layout
     , el
+    , width 
+    , fill 
     , column
     )
+import Element.Font as Font
 import Settings as Settings exposing ( Model, Msg, default, view, update )
 import Invoices as Inv exposing ( Model, Msg, view, update, default )
 import Nav as Nav exposing ( Model, Msg, view, update )
@@ -39,20 +42,14 @@ type alias Model =
 -- #17A ź
 -- #17C ż
 
-type Tab = Invoices | Customers | Settings
-
 type Msg 
     = NavLinkClicked Nav.Msg 
     | SettingsChanged Settings.Msg
     | InvoiceChanged Inv.Msg
-    | Inc 
-    | Dec
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model = 
     case msg of 
-        Inc -> ( {model | counter = model.counter + 11}, Cmd.none )
-        Dec -> ( {model | counter = model.counter - 1}, Cmd.none )
         NavLinkClicked inner -> ( { model | page = Nav.update inner model.page }, Cmd.none )
         SettingsChanged settingsMsg -> ( { model | settings = Settings.update settingsMsg model.settings }, Cmd.none )
         InvoiceChanged invMsg ->
@@ -60,10 +57,10 @@ update msg model =
             in ( { model | invData = newData } , Cmd.map InvoiceChanged innerMsg )
 
 embed : (msg -> Msg) -> Element msg -> Element Msg
-embed f m = Element.map f m
+embed = Element.map 
 
 topBar : Nav.Model -> Element Msg
-topBar page = el [] <| embed NavLinkClicked ( Nav.view page )
+topBar page = el [ width fill ] <| embed NavLinkClicked ( Nav.view page )
 
 tabContent : Model -> Element Msg
 tabContent model = 
@@ -75,10 +72,20 @@ tabContent model =
 
 view : Model -> Html Msg
 view model = 
-    column [] 
+    column 
+        [ width fill 
+        ] 
         [ topBar model.page
         , tabContent model
-        ] |> el [] |> layout []
+        ] 
+        |> el 
+            [ Font.family 
+                [ Font.typeface "Open Sans"
+                , Font.sansSerif
+                ] 
+            , width fill
+            ]
+        |> layout []
 
 init : () -> ( Model, Cmd Msg )
 init _ = let 
