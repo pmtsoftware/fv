@@ -7,7 +7,6 @@ module Invoices exposing
     , default
     )
 
-import Html
 import Time exposing 
     ( Posix
     , now
@@ -45,9 +44,12 @@ import Element.Input as Input exposing
     , labelHidden
     )
 import Element.Font as Font
+import Element.Background as Bg
 import Entity as Entity
 import Styles exposing 
     ( space 
+    , theme 
+    , font 
     )
 
 type alias Invoice =
@@ -82,7 +84,7 @@ default =
 type Msg
     = AddNewClicked 
     | AddNew Posix
-    | GoToZoom Key
+    | InvoiceClicked Key
     | NumberFieldChanged Key String
     | IssueDateFieldChanged Key String
     | SupplyDateFieldChanged Key String
@@ -127,8 +129,10 @@ update msg model
                         | docs = insert timestamp newDoc model.docs
                         , mode = Zoom timestamp
                  } , Cmd.none )
-        GoToZoom id -> ( model, Cmd.none )
-        NumberFieldChanged key value -> ( model, Cmd.none )
+        InvoiceClicked key -> ( { model | mode = Zoom key }, Cmd.none )
+        NumberFieldChanged key value -> 
+            updateDocField model key 
+                <| \doc -> { doc | number = value } 
         IssueDateFieldChanged key value -> ( model, Cmd.none )
         SupplyDateFieldChanged key value -> ( model, Cmd.none )
         RemarksFieldChanged key value -> ( model, Cmd.none )
@@ -149,6 +153,17 @@ update msg model
                     in ( { model | docs = updateInvoice key updatedDoc model.docs }, Cmd.map ( SellerChanged key ) outMsg )
                 Nothing -> ( model, Cmd.none )
             
+updateDocField : Model -> Key -> ( Invoice -> Invoice ) -> ( Model, Cmd Msg )
+updateDocField model key updateField =
+    let maybeDoc = get key model.docs
+    in case maybeDoc of
+        Just doc -> 
+            let upDoc = updateField doc 
+                swap = Maybe.map <| \_ -> upDoc
+                newDocs = Dict.update key swap model.docs
+            in ( { model | docs = newDocs }, Cmd.none )
+        Nothing -> ( model, Cmd.none )
+
 catalog : Store Invoice -> Element Msg
 catalog docs = 
     column []
@@ -158,21 +173,29 @@ catalog docs =
 
 listOfDocs : Store Invoice -> Element Msg
 listOfDocs store =
-    let 
-        listOfPairs = toList store
-        docs = map ( \(_, v) -> v ) listOfPairs
-    in column [ padding 16, spacing 8 ] <| map docToHtml docs
+    let pairs = toList store
+    in column [ padding 16, spacing 8 ] <| map docToHtml pairs
 
-docToHtml : Invoice -> Element Msg
-docToHtml doc =
-    let caption = doc.number ++ String.fromInt doc.key
-    in text caption
+docToHtml : ( Key, Invoice ) -> Element Msg
+docToHtml ( key, doc ) =
+    el []
+        <| button 
+            []
+            { onPress = Just <| InvoiceClicked key 
+            , label = text doc.number
+            } 
 
 addNewButton : Element Msg
-addNewButton = button [] 
-    { onPress = Just AddNewClicked
-    , label = text "Nowa faktura" 
-    }
+addNewButton = 
+    el 
+        [ Bg.color theme.primary 
+        , Font.color font.light
+        , padding space.small
+        ]
+    <| button [] 
+        { onPress = Just AddNewClicked
+        , label = text "Nowa faktura" 
+        }
     
 
 noField : Invoice -> Key -> Element Msg
@@ -222,9 +245,14 @@ zoom dict key =
         Just doc -> form doc key 
 
 view : Model -> Element Msg
-view model
-    = case model.mode of
-        Catalog -> catalog model.docs 
-        Zoom key -> zoom model.docs key 
+view model =
+    let inner = case model.mode of
+            Catalog -> catalog model.docs 
+            Zoom key -> zoom model.docs key
+    in el 
+        [ width <| px 960
+        , centerX
+        , padding space.normal
+        ] inner
             
     

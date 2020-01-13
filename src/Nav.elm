@@ -65,7 +65,7 @@ noFocus =
 link : Model -> Page -> String -> Element Msg
 link model page label =
     let bgColor = currentItemBgColor model page
-        staticAttrs = [ height fill, padding space.small, noFocus ]
+        staticAttrs = [ height fill, padding space.normal, noFocus ]
         styles = append staticAttrs <| alpha bgColor
     in el styles 
         <| button [] 
