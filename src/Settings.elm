@@ -10,17 +10,24 @@ module Settings
 import Element exposing 
     ( Element
     , column 
+    , el 
+    , width 
+    , px 
+    , spacing 
+    , padding 
     )
 import Element.Input exposing 
     ( text
     , labelLeft 
     )
+import Inputs exposing 
+    ( input 
+    )
 
 type alias Model =
     { name : String
-    , street : String
-    , zip_code : String
-    , city : String
+    , address1 : String
+    , address2 : String
     , account : String 
     , vatin : String
     }
@@ -28,18 +35,16 @@ type alias Model =
 default : Model
 default = 
     { name = ""
-    , street = ""
-    , zip_code = ""
-    , city = ""
+    , address1 = ""
+    , address2 = ""
     , account = ""
     , vatin = ""
     }
 
 type Msg 
     = NameChanged String 
-    | StreetChanged String 
-    | ZipCodeChanged String 
-    | CityChanged String
+    | Address1Changed String 
+    | Address2Changed String 
     | AccountChanged String 
     | VatinChanged String
 
@@ -47,52 +52,53 @@ update : Msg -> Model -> Model
 update msg settings 
     = case msg of
         NameChanged val -> { settings | name = val }
-        StreetChanged val -> { settings | street = val }
-        ZipCodeChanged val -> { settings | zip_code = val }
-        CityChanged val -> { settings | city = val }
+        Address1Changed val -> { settings | address1 = val }
+        Address2Changed val -> { settings | address2 = val }
         AccountChanged val -> { settings | account = val }
         VatinChanged val -> { settings | vatin = val }
 
-input : String -> String -> (String -> msg) -> Element msg
-input caption val msg =
-    text [] 
-        { onChange = msg
-        , text = val
-        , placeholder = Nothing
-        , label = labelLeft [] <| Element.text caption
-        }
+label : String -> Element msg 
+label caption =
+    el 
+        [ width <| px 260
+        , Element.centerY
+        ] 
+        <| Element.text caption
 
 nameField : Model -> Element Msg
 nameField  model = 
-    input "Nazwa" model.name NameChanged
+    let l = label "Nazwa"
+    in input l model.name NameChanged
 
-streetField : Model -> Element Msg
-streetField model = 
-    input "Ulica" model.street StreetChanged
+address1Field : Model -> Element Msg
+address1Field model = 
+    let l = label "Adres 1"
+    in input l model.address1 Address1Changed
 
-zipCodeField : Model -> Element Msg
-zipCodeField model = 
-    input "Kod pocztowy" model.zip_code ZipCodeChanged
-
-cityField : Model -> Element Msg
-cityField model = 
-    input "Miejscowosc" model.city CityChanged
+address2Field : Model -> Element Msg
+address2Field model = 
+    let l = label "Adres 2"
+    in input l model.address2 Address2Changed
 
 accountField : Model -> Element Msg
 accountField model = 
-    input "Numer konta bankowego" model.account AccountChanged
+    let l = label "Numer konta bankowego"
+    in input l model.account AccountChanged
 
 vatinField : Model -> Element Msg
 vatinField model = 
-    input "VAT" model.vatin VatinChanged
+    let l = label "VAT"
+    in input l model.vatin VatinChanged
 
 form : Model -> Element Msg
 form settings = 
-    column []
+    column 
+        [ spacing 16
+        , padding 16
+        ]
         [ nameField settings
-        , streetField settings
-        , zipCodeField settings
-        , cityField settings
+        , address1Field settings
+        , address2Field settings
         , vatinField settings
         , accountField settings
         ] 

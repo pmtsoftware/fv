@@ -12,12 +12,11 @@ import Element exposing
     )
 import Element.Font as Font
 import Settings as Settings exposing ( Model, Msg, default, view, update )
-import Invoices as Inv exposing ( Model, Msg, view, update, default )
+import Invoices as Inv exposing ( Model, Msg, view, update, default, setCatalogMode )
 import Nav as Nav exposing ( Model, Msg, view, update )
 
 type alias Model = 
-    { counter : Int 
-    , page : Nav.Model
+    { page : Nav.Model
     , settings : Settings.Model
     , invData : Inv.Model
     }
@@ -50,7 +49,10 @@ type Msg
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model = 
     case msg of 
-        NavLinkClicked inner -> ( { model | page = Nav.update inner model.page }, Cmd.none )
+        NavLinkClicked inner -> 
+            ( { model | page = Nav.update inner model.page, invData = Inv.setCatalogMode model.invData }
+            , Cmd.none 
+            )
         SettingsChanged settingsMsg -> ( { model | settings = Settings.update settingsMsg model.settings }, Cmd.none )
         InvoiceChanged invMsg ->
             let ( newData, innerMsg ) = Inv.update invMsg model.invData
@@ -90,8 +92,7 @@ view model =
 init : () -> ( Model, Cmd Msg )
 init _ = let 
             model =
-                { counter = 0
-                , page = Nav.Invoices
+                { page = Nav.Invoices
                 , settings = Settings.default
                 , invData = Inv.default
                 }

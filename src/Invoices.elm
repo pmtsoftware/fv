@@ -2,6 +2,7 @@ module Invoices exposing
     ( Model
     , Msg
     , view
+    , setCatalogMode
     , update
     , default
     )
@@ -32,25 +33,22 @@ import Element exposing
     , spacing 
     , padding
     , text
+    , width 
+    , fill 
+    , px 
+    , el 
+    , centerX
     )
 import Element.Input as Input exposing 
     ( button
     , labelLeft
+    , labelHidden
     )
-
-type alias Buyer = 
-    { name : String
-    , vatin : String {- NIP in Poland -}
-    , address1 : String
-    , address2 : String
-    }
-
-type alias Seller = 
-    { name : String
-    , vatin : String {- NIP in Poland -}
-    , address1 : String
-    , address2 : String
-    }
+import Element.Font as Font
+import Entity as Entity
+import Styles exposing 
+    ( space 
+    )
 
 type alias Invoice =
     { number : String
@@ -61,8 +59,8 @@ type alias Invoice =
     , net_value : Float
     , remarks : String
     , items : List String 
-    , buyer : Buyer
-    , seller : Seller
+    , buyer : Entity.Model
+    , seller : Entity.Model
     }
 
 type ViewMode = Catalog | Zoom Int
@@ -89,10 +87,8 @@ type Msg
     | IssueDateFieldChanged Key String
     | SupplyDateFieldChanged Key String
     | RemarksFieldChanged Key String
-    | BuyerNameFieldChanged Key String
-    | BuyerVatinFieldChanged Key  String
-    | BuyerAddress1FieldChanged Key String
-    | BuyerAddress2FieldChanged Key String
+    | BuyerChanged Key Entity.Msg
+    | SellerChanged Key Entity.Msg
 
 newInvoice : Int -> Invoice
 newInvoice timestamp = 
@@ -104,19 +100,21 @@ newInvoice timestamp =
     , net_value = 0
     , remarks = ""
     , items = [] 
-    , buyer = 
-        { name = ""
-        , vatin = ""
-        , address1 = ""
-        , address2 = ""
-        }
-    , seller = 
-        { name = ""
-        , vatin = ""
-        , address1 = ""
-        , address2 = ""
-        }
+    , buyer = Entity.default
+    , seller = Entity.default 
     }
+
+setter : Invoice -> Maybe Invoice -> Maybe Invoice 
+setter newDoc maybeDoc = Maybe.map ( \_ -> newDoc ) maybeDoc 
+
+updateInvoice : Key -> Invoice -> Store Invoice -> Store Invoice 
+updateInvoice key doc store =
+    let set = setter doc
+    in Dict.update key set store 
+
+setCatalogMode : Model -> Model 
+setCatalogMode model =
+    { model | mode = Catalog }
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model
@@ -134,11 +132,22 @@ update msg model
         IssueDateFieldChanged key value -> ( model, Cmd.none )
         SupplyDateFieldChanged key value -> ( model, Cmd.none )
         RemarksFieldChanged key value -> ( model, Cmd.none )
-        BuyerNameFieldChanged key value -> ( model, Cmd.none )
-        BuyerVatinFieldChanged key  value -> ( model, Cmd.none )
-        BuyerAddress1FieldChanged key value -> ( model, Cmd.none )
-        BuyerAddress2FieldChanged key value -> ( model, Cmd.none )
-
+        BuyerChanged key innerMsg -> 
+            let maybeDoc = get key model.docs
+            in case maybeDoc of
+                Just doc -> 
+                    let ( updatedBuyer, outMsg ) = Entity.update innerMsg doc.buyer
+                        updatedDoc = { doc | buyer = updatedBuyer }
+                    in ( { model | docs = updateInvoice key updatedDoc model.docs }, Cmd.map ( BuyerChanged key ) outMsg )
+                Nothing -> ( model, Cmd.none )
+        SellerChanged key innerMsg -> 
+            let maybeDoc = get key model.docs
+            in case maybeDoc of
+                Just doc -> 
+                    let ( updatedSeller, outMsg ) = Entity.update innerMsg doc.seller
+                        updatedDoc = { doc | seller = updatedSeller }
+                    in ( { model | docs = updateInvoice key updatedDoc model.docs }, Cmd.map ( SellerChanged key ) outMsg )
+                Nothing -> ( model, Cmd.none )
             
 catalog : Store Invoice -> Element Msg
 catalog docs = 
@@ -168,17 +177,42 @@ addNewButton = button []
 
 noField : Invoice -> Key -> Element Msg
 noField inv key =
-    --let msg = NumberFieldChanged key
     Input.text [] 
         { onChange = NumberFieldChanged key 
         , text =inv.number 
         , placeholder = Nothing 
-        , label = labelLeft [] <| text "Nr faktury" }
+        , label = labelHidden "Nr faktury" }
 
 form : Invoice -> Key -> Element Msg
 form doc key = 
-    column [] 
-        [ noField doc key ]
+    let buyerMap = Element.map <| BuyerChanged key 
+        buyer = buyerMap <| Entity.view doc.buyer
+        sellerMap = Element.map <| SellerChanged key 
+        seller = sellerMap <| Entity.view doc.seller
+    in column 
+        [ spacing space.small 
+        , padding space.large
+        , width <| px 960
+        , centerX
+        ] 
+        [ noField doc key 
+        , row 
+            [ width fill
+            ]
+            [ entityView "Kupujacy" buyer 
+            , entityView "Sprzedajacy" seller
+            ] 
+        ]
+
+entityView : String -> Element Msg -> Element Msg
+entityView title innerView =
+    column 
+        [ padding <| space.normal
+        , spacing <| space.small 
+        , width Element.fill ] 
+        [ el [ Font.bold ] <| text title
+        , innerView
+        ]
 
 zoom : Store Invoice -> Key -> Element Msg
 zoom dict key =

@@ -10,3 +10,6 @@ clean:
 
 run: build
 	chromium-browser --incognito ./index.html
+
+reactor:
+	elm reactor

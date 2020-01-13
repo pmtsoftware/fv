@@ -14,6 +14,7 @@ import Styles exposing
 import List exposing ( append )
 import Element exposing
     ( Element 
+    , Attribute
     , row 
     , padding 
     , spacing
@@ -27,6 +28,7 @@ import Element exposing
     )
 import Element.Font as Font
 import Element.Background as Bg
+import Element.Border as Border
 import Element.Input exposing
     ( button 
     )
@@ -54,11 +56,16 @@ currentItemBgColor currentPage page =
   else
     Nothing
 
+noFocus : Attribute msg 
+noFocus =
+    Element.focused 
+        [ Border.glow theme.primary_dark 2
+        ]
             
 link : Model -> Page -> String -> Element Msg
 link model page label =
     let bgColor = currentItemBgColor model page
-        staticAttrs = [ height fill, padding space.small ]
+        staticAttrs = [ height fill, padding space.small, noFocus ]
         styles = append staticAttrs <| alpha bgColor
     in el styles 
         <| button [] 
