@@ -85,6 +85,7 @@ view model =
                 [ Font.typeface "Open Sans"
                 , Font.sansSerif
                 ] 
+            , Font.size 14
             , width fill
             ]
         |> layout []
