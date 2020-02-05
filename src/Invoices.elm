@@ -69,12 +69,15 @@ type ViewMode = Catalog | Zoom Data.DocId
 type alias Model =
     { folder : Data.Folder 
     , mode : ViewMode 
+    , itemAskedForDelete : Maybe DocItemId
     }
 
 default : Model
 default = 
     { folder = Data.createFolder
-    , mode = Catalog }
+    , mode = Catalog 
+    , itemAskedForDelete = Nothing
+    }
 
 type Msg
     = AddNewClicked 
@@ -99,7 +102,9 @@ type Msg
     | ItemVatRateChanged DocItemId String
     | ItemNetPriceChanged DocItemId String
     | ItemUnitChanged DocItemId String 
-    | ItemAskedForDelete
+    | DeleteItemButtonClicked DocItemId
+    | ConfirmItemDeleteButtonClicked 
+    | RejectItemDeleteButtonClicked 
 
 
 setCatalogMode : Model -> Model 
@@ -158,7 +163,9 @@ update msg model
             let qty = Maybe.withDefault 0 <| String.toFloat value
             in handleDocUpdate model <| Data.setItemNetPrice model.folder id qty 
         ItemUnitChanged id val -> handleDocUpdate model <| Data.setItemUnit model.folder id val 
-        ItemAskedForDelete -> ( model, Cmd.none )
+        DeleteItemButtonClicked docItemId -> ( { model | itemAskedForDelete = Just docItemId }, Cmd.none )
+        ConfirmItemDeleteButtonClicked -> ( model, Cmd.none )
+        RejectItemDeleteButtonClicked -> ( { model | itemAskedForDelete = Nothing }, Cmd.none )
 
 catalog : Folder -> Element Msg
 catalog docs = 
@@ -197,16 +204,26 @@ addNewButton =
 noField : Doc -> Element Msg
 noField inv =
     let docId = Data.getDocId inv
-    in Input.text [] 
-        { onChange = NumberFieldChanged docId 
-        , text = Data.getDocNumber inv 
-        , placeholder = Nothing 
-        , label = labelHidden "Nr faktury" }
+    in  Input.text 
+            [ Font.size 24 
+            , Font.heavy 
+            , width fill
+            ] 
+            { onChange = NumberFieldChanged docId 
+            , text = Data.getDocNumber inv 
+            , placeholder = Nothing 
+            , label = labelHidden "Nr faktury" 
+            }
 
 label : String -> Element msg 
-label caption =
+label = 
+    let attr = width <| px 80
+    in labelWithWidth attr 
+
+labelWithWidth : Element.Attribute msg -> String -> Element msg 
+labelWithWidth attr caption =
     el 
-        [ width <| px 80
+        [ attr
         , Element.centerY
         ] 
         <| Element.text caption
@@ -371,13 +388,10 @@ priceCell item =
         [ padding space.xSmall
         ] input
 
-delButtonCell : DocItem -> Element Msg 
-delButtonCell _ =
-    el 
-        [ Element.centerY 
-        , padding space.xSmall
-        ]
-        <| button 
+itemButtons : Maybe DocItemId -> DocItem -> Element Msg
+itemButtons itemToDelete docItem =
+    let docItemId = Data.getDocItemId docItem 
+        toBtn ( msg,  caption ) = button 
             [ Element.alignRight
             , Font.color theme.primary_dark
             , Border.color theme.primary_dark
@@ -386,12 +400,26 @@ delButtonCell _ =
             , Border.rounded 4
             , padding space.small
             ]
-            { onPress = Nothing 
-            , label = text "Del" 
-            } 
+            { onPress = Just msg 
+            , label = text caption 
+            }
+        commands = case itemToDelete of
+            Just idToDel ->
+                if idToDel == docItemId then 
+                    [ ( ConfirmItemDeleteButtonClicked, "Tak") 
+                    , ( RejectItemDeleteButtonClicked, "Nie" ) 
+                    ] 
+                else 
+                    [ ( DeleteItemButtonClicked docItemId, "Del" ) ]
+            Nothing -> [ ( DeleteItemButtonClicked docItemId, "Del" ) ]
+        btns = List.map toBtn commands
+    in el 
+        [ Element.centerY 
+        , padding space.xSmall
+        ] <| row [ Element.alignRight ] btns
 
-itemsView : Doc -> Element Msg 
-itemsView doc = 
+itemsView : Doc -> Maybe DocItemId -> Element Msg 
+itemsView doc itemToDelete = 
     table
         []
         { data = Data.getDocItems doc  
@@ -399,7 +427,7 @@ itemsView doc =
             [ 
                 { header = header Nothing
                 , width = px 100
-                , view = delButtonCell
+                , view = itemButtons itemToDelete
                 }
                 , { header = header <| Just "Nazwa"
                 , width = fill
@@ -424,22 +452,46 @@ itemsView doc =
             ]
         } 
 
-form : Doc -> Element Msg
-form doc = 
-    column 
+topRight doc = 
+    let lblWidth = width <| px 120
+        lbl = labelWithWidth lblWidth
+        docId = Data.getDocId doc
+        issueDate = Data.getDocIssueDate doc
+        supplyDate = Data.getDocSupplyDate doc 
+    in 
+    { issueDate = input ( lbl "Data wydania" ) issueDate <| IssueDateFieldChanged docId
+    , supplyDate = input ( lbl "Data sprzedazy" ) supplyDate <| SupplyDateFieldChanged docId
+    }
+
+form : Doc -> Maybe DocItemId -> Element Msg
+form doc itemToDel = 
+    let topRightFields = topRight doc
+    in column 
         [ spacing space.small 
         , padding space.large
         , width <| px 960
         , centerX
         ] 
-        [ noField doc 
+        [ row 
+            [ width fill 
+            , spacing space.xLarge
+            ] 
+            [ el [ Element.alignTop, width fill ] <| noField doc
+            , column
+                [ width <| px 300 
+                , spacing space.xSmall
+                ] 
+                [ topRightFields.issueDate
+                , topRightFields.supplyDate
+                ]
+            ] 
         , row 
             [ width fill
             ]
             [ entityView "Kupujacy" <| buyerView doc
             , entityView "Sprzedajacy" <| sellerView doc
             ] 
-        , itemsView doc
+        , itemsView doc itemToDel
         , addNewItemButton doc
         ]
 
@@ -460,7 +512,7 @@ view model =
             Zoom docId ->
                 case Data.getDocById model.folder docId of
                     Just doc ->
-                        form doc
+                        form doc model.itemAskedForDelete
                     Nothing ->
                         text "Brak dokumentu :("
     in el 
