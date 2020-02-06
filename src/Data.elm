@@ -8,6 +8,8 @@ module Data exposing
     , createFolder
     , createDoc
     , createItem
+    , deleteDoc
+    , deleteItem
     , getDocById 
     , getDocs 
     , getDocId
@@ -123,6 +125,11 @@ getDocs ( Folder docs ) =
 createFolder : Folder
 createFolder = Folder Dict.empty
 
+deleteDoc : Folder -> DocId -> Folder
+deleteDoc ( Folder store ) docId =
+    let key = getKey docId 
+    in Folder <| Dict.remove key store
+
 createDoc : Folder -> Int -> Result Error ( Folder, Doc )
 createDoc ( Folder dict ) id =
     let items = Dict.empty
@@ -161,6 +168,16 @@ swapDocItem : Document -> DocItemId -> DocumentItem -> Document
 swapDocItem doc ( DocItemId _ id ) item =
     let newItems = update id item doc.items
     in { doc | items = newItems }
+
+deleteItem : Folder -> DocItemId -> Folder 
+deleteItem folder ( DocItemId docKey key ) =
+    let maybeDoc = getDoc folder docKey
+    in case maybeDoc of
+        Just origDoc -> 
+            let newItems = Dict.remove key origDoc.items
+                newDoc = { origDoc | items = newItems }
+            in swapDoc folder docKey newDoc
+        Nothing -> folder
 
 createItem : Folder -> DocId -> Int -> Result Error ( Folder, DocItem )
 createItem folder docId id =

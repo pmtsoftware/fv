@@ -27,7 +27,6 @@ import List exposing
     )
 import Element exposing 
     ( Element
-    , Column 
     , table
     , row 
     , column
@@ -164,7 +163,12 @@ update msg model
             in handleDocUpdate model <| Data.setItemNetPrice model.folder id qty 
         ItemUnitChanged id val -> handleDocUpdate model <| Data.setItemUnit model.folder id val 
         DeleteItemButtonClicked docItemId -> ( { model | itemAskedForDelete = Just docItemId }, Cmd.none )
-        ConfirmItemDeleteButtonClicked -> ( model, Cmd.none )
+        ConfirmItemDeleteButtonClicked -> 
+            case model.itemAskedForDelete of
+                Just docItemId -> ( { model 
+                                        | itemAskedForDelete = Nothing
+                                        , folder = Data.deleteItem model.folder docItemId }, Cmd.none )
+                Nothing -> ( { model | itemAskedForDelete = Nothing }, Cmd.none )
         RejectItemDeleteButtonClicked -> ( { model | itemAskedForDelete = Nothing }, Cmd.none )
 
 catalog : Folder -> Element Msg
