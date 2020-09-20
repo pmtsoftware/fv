@@ -12,13 +12,6 @@ import Time exposing
     , now
     , posixToMillis
     )
-import Dict exposing 
-    ( Dict
-    , insert
-    , empty
-    , toList
-    , get 
-    )
 import Task exposing 
     ( perform 
     )
@@ -41,6 +34,7 @@ import Element exposing
     )
 import Inputs exposing 
     ( input 
+    , datePicker
     )
 import Element.Input as Input exposing 
     ( button
@@ -62,8 +56,22 @@ import Data as Data exposing
     , Doc
     , DocItem
     )
+import Date exposing 
+    ( Date
+    )
+import DatePicker as DatePicker exposing
+    ( ChangeEvent (..)
+    )
 
-type ViewMode = Catalog | Zoom Data.DocId
+type ViewMode 
+    = Catalog 
+    | Zoom FormState
+
+type alias FormState = 
+    { docId : Data.DocId
+    , issueDatePickerModel : DatePicker.Model 
+    , supplyDatePickerModel : DatePicker.Model
+    }
 
 type alias Model =
     { folder : Data.Folder 
@@ -85,8 +93,8 @@ type Msg
     | AddNewDocItem DocId Posix
     | InvoiceClicked DocId
     | NumberFieldChanged DocId String
-    | IssueDateFieldChanged DocId String
-    | SupplyDateFieldChanged DocId String
+    | IssueDatePickerChangeEvent DocId ChangeEvent
+    | SupplyDatePickerChangeEvent DocId ChangeEvent
     | RemarksFieldChanged DocId String
     | BuyerNameChanged DocId String
     | BuyerAddress1Changed DocId String 
@@ -123,7 +131,11 @@ handleDocCreate model result =
             Result.Ok ( newFolder, doc ) -> 
                 ( { model 
                         | folder = newFolder
-                        , mode = Zoom <| Data.getDocId doc 
+                        , mode = Zoom <| 
+                                        { docId = Data.getDocId doc
+                                        , issueDatePickerModel = DatePicker.init
+                                        , supplyDatePickerModel = DatePicker.init
+                                        } 
                         }, Cmd.none )
             Result.Err _ -> ( model, Cmd.none )
 
@@ -138,10 +150,41 @@ update msg model
         AddNewDocItem docId time ->
             let timestamp = posixToMillis time 
             in handleDocUpdate model <| Data.createItem model.folder docId timestamp 
-        InvoiceClicked id -> ( { model | mode = Zoom id }, Cmd.none )
+        InvoiceClicked id -> 
+            let newMode = Zoom 
+                            { docId = id 
+                            , issueDatePickerModel = DatePicker.init
+                            , supplyDatePickerModel = DatePicker.init
+                            } 
+            in ( { model | mode = newMode }, Cmd.none )
         NumberFieldChanged id value -> handleDocUpdate model <| Data.setDocNumber model.folder id value
-        IssueDateFieldChanged id value -> handleDocUpdate model <| Data.setDocIssueDate model.folder id value 
-        SupplyDateFieldChanged id value -> handleDocUpdate model <| Data.setDocSupplyDate model.folder id value 
+        IssueDatePickerChangeEvent id event -> 
+            case event of
+                DateChanged value -> handleDocUpdate model <| Data.setDocIssueDate model.folder id (Just value) 
+                TextChanged text -> ( model, Cmd.none )
+                PickerChanged subMsg -> 
+                    let updateMode old = 
+                                        case old of 
+                                            (Zoom data) -> Zoom 
+                                                                { docId = data.docId 
+                                                                , issueDatePickerModel = data.issueDatePickerModel |> DatePicker.update subMsg
+                                                                , supplyDatePickerModel = data.supplyDatePickerModel                                                                }
+                                            Catalog -> Catalog
+                    in ( { model | mode = updateMode model.mode }, Cmd.none )
+        SupplyDatePickerChangeEvent id event -> 
+            case event of 
+                DateChanged value -> handleDocUpdate model <| Data.setDocSupplyDate model.folder id (Just value) 
+                TextChanged text -> ( model, Cmd.none )
+                PickerChanged subMsg -> 
+                    let updateMode old = 
+                                        case old of 
+                                            (Zoom data) -> Zoom 
+                                                                { docId = data.docId 
+                                                                , issueDatePickerModel = data.issueDatePickerModel
+                                                                , supplyDatePickerModel = data.supplyDatePickerModel |> DatePicker.update subMsg
+                                                                }
+                                            Catalog -> Catalog
+                    in ( { model | mode = updateMode model.mode }, Cmd.none )
         RemarksFieldChanged id value -> handleDocUpdate model <| Data.setDocRemarks model.folder id value 
         BuyerNameChanged id value -> handleDocUpdate model <| Data.setBuyerName model.folder id value
         BuyerAddress1Changed id value -> handleDocUpdate model <| Data.setBuyerAddress1 model.folder id value
@@ -456,20 +499,26 @@ itemsView doc itemToDelete =
             ]
         } 
 
-topRight doc = 
+topRight state doc = 
     let lblWidth = width <| px 120
         lbl = labelWithWidth lblWidth
         docId = Data.getDocId doc
         issueDate = Data.getDocIssueDate doc
         supplyDate = Data.getDocSupplyDate doc 
     in 
-    { issueDate = input ( lbl "Data wydania" ) issueDate <| IssueDateFieldChanged docId
-    , supplyDate = input ( lbl "Data sprzedazy" ) supplyDate <| SupplyDateFieldChanged docId
+    { issueDate = 
+        let cap = lbl "Data wydania" 
+            msg = IssueDatePickerChangeEvent docId
+        in datePicker cap issueDate msg state.issueDatePickerModel
+    , supplyDate = 
+        let cap = lbl "Data sprzedazy" 
+            msg = SupplyDatePickerChangeEvent docId
+        in datePicker cap supplyDate msg state.supplyDatePickerModel
     }
 
-form : Doc -> Maybe DocItemId -> Element Msg
-form doc itemToDel = 
-    let topRightFields = topRight doc
+form : FormState -> Doc -> Maybe DocItemId -> Element Msg
+form state doc itemToDel = 
+    let topRightFields = topRight state doc
     in column 
         [ spacing space.small 
         , padding space.large
@@ -513,10 +562,10 @@ view : Model -> Element Msg
 view model =
     let inner = case model.mode of
             Catalog -> catalog model.folder 
-            Zoom docId ->
-                case Data.getDocById model.folder docId of
+            Zoom state ->
+                case Data.getDocById model.folder state.docId of
                     Just doc ->
-                        form doc model.itemAskedForDelete
+                        form state doc model.itemAskedForDelete
                     Nothing ->
                         text "Brak dokumentu :("
     in el 

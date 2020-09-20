@@ -5,6 +5,7 @@ module Data exposing
     , DocItem
     , DocId 
     , DocItemId 
+    , Payment (..)
     , createFolder
     , createDoc
     , createItem
@@ -59,6 +60,8 @@ module Data exposing
     , setSellerAddress1
     , getSellerAddress2
     , setSellerAddress2
+    , getPayment
+    , setPayment
     )
 
 import Dict as Dict exposing
@@ -66,6 +69,9 @@ import Dict as Dict exposing
     )
 import Result as Result exposing 
     ( Result 
+    )
+import Date exposing 
+    ( Date
     )
 
 type alias Key = Int
@@ -85,11 +91,17 @@ type DocItemId = DocItemId Key ItemKey
 
 type Error = DocNotFound | DocItemNotFound
 
+type Payment = Cash | Transfer
+
+type alias DocSetter a = Folder -> DocId -> a -> Result Error ( Folder, Doc )
+
+type alias DocItemSetter a = Folder -> DocItemId -> a -> Result Error ( Folder, DocItem )
+
 type alias Document = 
     { number : String
     , id : Key
-    , issue_date : String
-    , supply_date : String
+    , issue_date : Maybe Date
+    , supply_date : Maybe Date
     , gross_value : Float
     , net_value : Float
     , remarks : String
@@ -101,6 +113,7 @@ type alias Document =
     , buyerVatin : String 
     , buyerAddress1 : String 
     , buyerAddress2 : String 
+    , payment : Payment
     , items : ItemsStore
     }
 
@@ -126,8 +139,8 @@ createFolder : Folder
 createFolder = Folder Dict.empty
 
 deleteDoc : Folder -> DocId -> Folder
-deleteDoc ( Folder store ) docId =
-    let key = getKey docId 
+deleteDoc ( Folder store ) id =
+    let key = getKey id 
     in Folder <| Dict.remove key store
 
 createDoc : Folder -> Int -> Result Error ( Folder, Doc )
@@ -136,8 +149,8 @@ createDoc ( Folder dict ) id =
         doc = 
             { number = "Faktura VAT"
             , id = id 
-            , issue_date = ""
-            , supply_date = ""
+            , issue_date = Nothing 
+            , supply_date = Nothing
             , gross_value = 0 
             , net_value = 0
             , remarks = ""
@@ -149,6 +162,7 @@ createDoc ( Folder dict ) id =
             , sellerVatin = ""
             , sellerAddress1 = ""
             , sellerAddress2 = ""
+            , payment = Cash
             , items = items 
             }
         newDict = Dict.insert id doc dict
@@ -160,9 +174,9 @@ update key val dict =
     in Dict.update key swap dict
 
 swapDoc : Folder -> Key -> Document -> Folder
-swapDoc ( Folder docs ) docId doc =
+swapDoc ( Folder docs ) id doc =
     let swap = \_ -> Just doc 
-    in Folder <| Dict.update docId swap docs
+    in Folder <| Dict.update id swap docs
 
 swapDocItem : Document -> DocItemId -> DocumentItem -> Document 
 swapDocItem doc ( DocItemId _ id ) item =
@@ -170,19 +184,19 @@ swapDocItem doc ( DocItemId _ id ) item =
     in { doc | items = newItems }
 
 deleteItem : Folder -> DocItemId -> Folder 
-deleteItem folder ( DocItemId docKey key ) =
-    let maybeDoc = getDoc folder docKey
+deleteItem f ( DocItemId docKey key ) =
+    let maybeDoc = getDoc f docKey
     in case maybeDoc of
         Just origDoc -> 
             let newItems = Dict.remove key origDoc.items
                 newDoc = { origDoc | items = newItems }
-            in swapDoc folder docKey newDoc
-        Nothing -> folder
+            in swapDoc f docKey newDoc
+        Nothing -> f
 
 createItem : Folder -> DocId -> Int -> Result Error ( Folder, DocItem )
-createItem folder docId id =
+createItem f docId id =
     let key = getKey docId
-    in case getDoc folder key of
+    in case getDoc f key of
             Just invoice -> 
                 let newItem = 
                         { name = ""
@@ -198,7 +212,7 @@ createItem folder docId id =
                         }
                     newItems = Dict.insert id newItem invoice.items
                     newDoc = { invoice | items = newItems }
-                    newFolder = swapDoc folder key newDoc
+                    newFolder = swapDoc f key newDoc
                 in Result.Ok ( newFolder, DocItem newItem )
             Nothing -> Result.Err DocNotFound
 
@@ -212,8 +226,8 @@ getDoc : Folder -> Key -> Maybe Document
 getDoc ( Folder docs ) docId = Dict.get docId docs 
 
 getDocById : Folder -> DocId -> Maybe Doc 
-getDocById folder docId = 
-    let key = getKey docId in Maybe.map Doc <| getDoc folder key
+getDocById f id = 
+    let key = getKey id in Maybe.map Doc <| getDoc f key
 
 getDocByItemId : Folder -> DocItemId -> Maybe Doc 
 getDocByItemId ( Folder docs ) ( DocItemId docKey _ ) =
@@ -222,137 +236,117 @@ getDocByItemId ( Folder docs ) ( DocItemId docKey _ ) =
 getDocNumber : Doc -> String 
 getDocNumber ( Doc invoice ) = invoice.number
 
-setDocField : Folder -> Key -> ( Document -> Document ) -> Result Error ( Folder, Doc )
+setDocField : Folder -> DocId -> ( Document -> Document ) -> Result Error ( Folder, Doc )
 setDocField folder docId setField =
-    case getDoc folder docId of
+    let key = getKey docId
+    in case getDoc folder key of
         Just doc -> 
             let newDoc = setField doc 
-                newFolder = swapDoc folder docId newDoc
+                newFolder = swapDoc folder key newDoc
             in Result.Ok ( newFolder, Doc newDoc )
         Nothing -> Result.Err DocNotFound
 
-setDocNumber : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setDocNumber folder docId value =
-    let setter = \inv -> { inv | number = value } 
-        key = getKey docId
-    in setDocField folder key setter
+setDocNumber : DocSetter String
+setDocNumber f id value =
+    setDocField f id <| \inv -> { inv | number = value } 
 
-getDocIssueDate : Doc -> String 
+getDocIssueDate : Doc -> Maybe Date 
 getDocIssueDate ( Doc doc ) = doc.issue_date
 
-setDocIssueDate : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setDocIssueDate folder docId value =
-    let setter = \inv -> { inv | issue_date = value }
-        key = getKey docId
-    in setDocField folder key setter
+setDocIssueDate : DocSetter (Maybe Date)
+setDocIssueDate f id value =
+    setDocField f id <| \inv -> { inv | issue_date = value }
 
-getDocSupplyDate : Doc -> String
+getDocSupplyDate : Doc -> Maybe Date
 getDocSupplyDate  ( Doc doc ) = doc.supply_date
 
-setDocSupplyDate : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setDocSupplyDate  folder docId value =
-    let setter = \inv -> { inv | supply_date = value }
-        key = getKey docId
-    in setDocField folder key setter
+setDocSupplyDate : DocSetter (Maybe Date)
+setDocSupplyDate  f id value =
+    setDocField f id <| \inv -> { inv | supply_date = value }
 
 getDocGrossValue : Doc -> Float
 getDocGrossValue  ( Doc doc ) = doc.gross_value 
 
-setDocGrossValue : Folder -> DocId -> Float -> Result Error ( Folder, Doc )
-setDocGrossValue  folder docId value =
-    let setter = \inv -> { inv | gross_value = value }
-        key = getKey docId
-    in setDocField folder key setter
+setDocGrossValue : DocSetter Float
+setDocGrossValue  f id value =
+    setDocField f id <| \inv -> { inv | gross_value = value }
 
 getDocNetValue  : Doc -> Float 
 getDocNetValue ( Doc doc ) = doc.net_value 
 
-setDocNetValue  : Folder -> DocId -> Float -> Result Error ( Folder, Doc )
-setDocNetValue folder docId value =
-    let setter = \inv -> { inv | net_value = value }
-        key = getKey docId
-    in setDocField folder key setter
+setDocNetValue  : DocSetter Float
+setDocNetValue f id value =
+    setDocField f id <| \inv -> { inv | net_value = value }
 
 getDocRemarks  : Doc -> String
 getDocRemarks ( Doc doc ) = doc.remarks
 
-setDocRemarks : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setDocRemarks folder docId value =
-    let setter = \inv -> { inv | remarks = value }
-        key = getKey docId
-    in setDocField folder key setter
+setDocRemarks : DocSetter String
+setDocRemarks f id value =
+    setDocField f id <| \inv -> { inv | remarks = value }
 
 getBuyerName : Doc -> String
 getBuyerName ( Doc doc ) = doc.buyerName
 
-setBuyerName : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setBuyerName folder docId value =
-    let setter = \inv -> { inv | buyerName = value }
-        key = getKey docId
-    in setDocField folder key setter
+setBuyerName : DocSetter String
+setBuyerName f id value =
+    setDocField f id <| \inv -> { inv | buyerName = value }
 
 getBuyerVatin : Doc -> String
 getBuyerVatin ( Doc doc ) = doc.buyerVatin
 
-setBuyerVatin : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setBuyerVatin folder docId value =    
-    let setter = \inv -> { inv | buyerVatin = value }
-        key = getKey docId
-    in setDocField folder key setter
+setBuyerVatin : DocSetter String
+setBuyerVatin f docId value =    
+    setDocField f docId <| \inv -> { inv | buyerVatin = value }
 
 getBuyerAddress1 : Doc -> String
 getBuyerAddress1 ( Doc doc ) = doc.buyerAddress1
 
-setBuyerAddress1 : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setBuyerAddress1 folder docId value =    
-    let setter = \inv -> { inv | buyerAddress1 = value }
-        key = getKey docId
-    in setDocField folder key setter
+setBuyerAddress1 : DocSetter String
+setBuyerAddress1 f id value =    
+    setDocField f id <| \inv -> { inv | buyerAddress1 = value }
 
 getBuyerAddress2 : Doc -> String
 getBuyerAddress2 ( Doc doc ) = doc.buyerAddress2
 
-setBuyerAddress2 : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setBuyerAddress2 folder docId value =    
-    let setter = \inv -> { inv | buyerAddress2 = value }
-        key = getKey docId
-    in setDocField folder key setter
+setBuyerAddress2 : DocSetter String
+setBuyerAddress2 f docId value =    
+    setDocField f docId <| \inv -> { inv | buyerAddress2 = value }
 
 getSellerName : Doc -> String
 getSellerName ( Doc doc ) = doc.sellerName
 
-setSellerName : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setSellerName folder docId value =    
-    let setter = \inv -> { inv | sellerName = value }
-        key = getKey docId
-    in setDocField folder key setter
+setSellerName : DocSetter String
+setSellerName f docId value =    
+    setDocField f docId <| \inv -> { inv | sellerName = value }
 
 getSellerVatin : Doc -> String
 getSellerVatin ( Doc doc ) = doc.sellerVatin
 
-setSellerVatin : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setSellerVatin folder docId value =    
-    let setter = \inv -> { inv | sellerVatin = value }
-        key = getKey docId
-    in setDocField folder key setter
+setSellerVatin : DocSetter String
+setSellerVatin f docId value =    
+    setDocField f docId <| \inv -> { inv | sellerVatin = value }
 
 getSellerAddress1 : Doc -> String
 getSellerAddress1 ( Doc doc ) = doc.sellerAddress1
 
-setSellerAddress1 : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setSellerAddress1 folder docId value =    
-    let setter = \inv -> { inv | sellerAddress1 = value }
-        key = getKey docId
-    in setDocField folder key setter
+setSellerAddress1 : DocSetter String
+setSellerAddress1 f docId value =    
+    setDocField f docId <| \inv -> { inv | sellerAddress1 = value }
 
 getSellerAddress2 : Doc -> String
 getSellerAddress2 ( Doc doc ) = doc.sellerAddress1
 
-setSellerAddress2 : Folder -> DocId -> String -> Result Error ( Folder, Doc )
-setSellerAddress2 folder docId value =    
-    let setter = \inv -> { inv | sellerAddress2 = value }
-        key = getKey docId
-    in setDocField folder key setter
+setSellerAddress2 : DocSetter String
+setSellerAddress2 f docId value =    
+    setDocField f docId <| \inv -> { inv | sellerAddress2 = value }
+
+getPayment : Doc -> Payment
+getPayment ( Doc doc ) = doc.payment
+
+setPayment : DocSetter Payment
+setPayment f docId value =
+    setDocField f docId <| \inv -> { inv | payment = value }
 
 getDocItemId : DocItem -> DocItemId
 getDocItemId ( DocItem item ) = DocItemId item.docId item.id
@@ -369,76 +363,68 @@ getDocItemName  : DocItem -> String
 getDocItemName ( DocItem i ) = i.name 
 
 setItemField : Folder -> DocItemId -> ( DocumentItem -> DocumentItem ) -> Result Error ( Folder, DocItem )
-setItemField folder docItemId setter =
-    case getDocByItemId folder docItemId of
+setItemField f docItemId setter =
+    case getDocByItemId f docItemId of
         Just doc ->
             case getDocItem doc docItemId of
                 Just ( DocItem item ) ->
                     let newItem = setter item 
                         ( Doc invoice ) = doc
                         newDoc = swapDocItem invoice docItemId newItem
-                    in Result.Ok ( swapDoc folder invoice.id newDoc, DocItem newItem )
+                    in Result.Ok ( swapDoc f invoice.id newDoc, DocItem newItem )
                 Nothing -> Result.Err DocItemNotFound
         Nothing -> Result.Err DocNotFound 
 
 
-setDocItemName : Folder -> DocItemId -> String -> Result Error ( Folder, DocItem )
-setDocItemName folder id value =
-    let setter = \item -> { item | name = value }
-    in setItemField folder id setter 
+setDocItemName : DocItemSetter String
+setDocItemName f id value =
+    setItemField f id <| \item -> { item | name = value }
 
 getItemQuantity : DocItem -> Float 
 getItemQuantity ( DocItem item ) = item.quantity
 
-setItemQuantity : Folder -> DocItemId -> Float -> Result Error ( Folder, DocItem )
-setItemQuantity folder id value =
-    let setter = \item -> { item | quantity = value }
-    in setItemField folder id setter 
+setItemQuantity : DocItemSetter Float 
+setItemQuantity f id value =
+    setItemField f id <| \item -> { item | quantity = value }
 
 getItemUnit : DocItem -> String 
 getItemUnit ( DocItem item ) = item.unit
 
-setItemUnit : Folder -> DocItemId -> String -> Result Error ( Folder, DocItem )
-setItemUnit folder id value =
-    let setter = \item -> { item | unit = value }
-    in setItemField folder id setter 
+setItemUnit : DocItemSetter String
+setItemUnit f id value =
+    setItemField f id <| \item -> { item | unit = value }
 
 getItemVatRate : DocItem -> Float 
 getItemVatRate  ( DocItem item ) = item.vatRate
 
-setItemVatRate : Folder -> DocItemId -> Float -> Result Error ( Folder, DocItem )
-setItemVatRate folder id value =
-    let setter = \item -> { item | vatRate = value }
-    in setItemField folder id setter 
+setItemVatRate : DocItemSetter Float
+setItemVatRate f id value =
+    setItemField f id <| \item -> { item | vatRate = value }
 
 getItemGrossPrice : DocItem -> Float 
 getItemGrossPrice ( DocItem item ) = item.grossPrice
 
-setItemGrossPrice : Folder -> DocItemId -> Float -> Result Error ( Folder, DocItem )
-setItemGrossPrice folder id value =
-    let setter = \item -> { item | grossPrice = value }
-    in setItemField folder id setter 
+setItemGrossPrice : DocItemSetter Float
+setItemGrossPrice f id value =
+    setItemField f id <| \item -> { item | grossPrice = value }
 
 getItemNetPrice : DocItem -> Float 
 getItemNetPrice ( DocItem item ) = item.netPrice
 
-setItemNetPrice : Folder -> DocItemId -> Float -> Result Error ( Folder, DocItem )
-setItemNetPrice folder id value =
-    let setter = \item -> { item | netPrice = value }
-    in setItemField folder id setter 
+setItemNetPrice : DocItemSetter Float
+setItemNetPrice f id value =
+    setItemField f id <| \item -> { item | netPrice = value }
 
 getItemGrossValue : DocItem -> Float
 getItemGrossValue ( DocItem item ) = item.grossValue
 
-setItemGrossValue : Folder -> DocItemId -> Float -> Result Error ( Folder, DocItem )
-setItemGrossValue folder id value =
-    let setter = \item -> { item | grossValue = value }
-    in setItemField folder id setter 
+setItemGrossValue : DocItemSetter Float
+setItemGrossValue f id value =
+    setItemField f id <| \item -> { item | grossValue = value }
 
 getItemNetValue : DocItem -> Float
 getItemNetValue ( DocItem item ) = item.netValue 
 
-setItemNetValue : Folder -> DocItemId -> Float -> Result Error ( Folder, DocItem )
-setItemNetValue folder id value =
-    let setter = \item -> { item | netValue = value }
-    in setItemField folder id setter 
+setItemNetValue : DocItemSetter Float
+setItemNetValue f id value =
+    setItemField f id <| \item -> { item | netValue = value }
