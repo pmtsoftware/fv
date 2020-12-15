@@ -1,10 +1,12 @@
 module Data exposing 
     ( Folder
+    , Document
     , Error (..)
     , Doc
     , DocItem
     , DocId 
     , DocItemId 
+    , ItemKey
     , Payment (..)
     , createFolder
     , createDoc
