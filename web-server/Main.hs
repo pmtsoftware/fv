@@ -4,7 +4,6 @@
 
 module Main where
 
-import qualified MyLib (someFunc)
 import Servant
 import GHC.Generics
 import Data.Aeson
