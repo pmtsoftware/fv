@@ -15,10 +15,14 @@ extra-source-files:  CHANGELOG.md
 
 executable web-server
   main-is:             Main.hs
-  --other-modules:       MyLib
+  other-modules:       CouchdbClient
   -- other-extensions:
   build-depends:        base ^>=4.14.1.0
                         , servant-server ^>=0.18.2
+                        , servant-client ^>=0.18.2
+                        , servant
+                        , cookie
+                        , bytestring
                         , aeson 
                         , warp
   -- hs-source-dirs:
