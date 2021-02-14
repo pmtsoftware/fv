@@ -1,47 +1,62 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module CouchdbClient where
 
-import Servant.Client
-import Servant.API
+import Network.HTTP.Simple
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as BS 
+import Data.Maybe (maybeToList)
 import GHC.Generics
-import Data.Aeson
-import Data.Proxy (Proxy (..))
-import Web.Cookie (parseCookies)
-import Data.List (find)
-import qualified Data.ByteString.Char8 as BS
+import Data.Aeson 
+import Control.Monad.IO.Class (MonadIO)
 
-type CouchdbAPI =
-    "_session" :> ReqBody '[JSON] Credentials :> Post '[JSON] (Headers '[Header "Set-Cookie" String] Ok)
+baseReq = 
+    setRequestBasicAuth "fv" "fv" 
+    . setRequestPort 5984 
+    . setRequestSecure False 
+    . setRequestHost "localhost" $ defaultRequest
 
-couchdbAPI :: Proxy CouchdbAPI
-couchdbAPI = Proxy
+data DbResponse = DbResponse 
+    { id :: String
+    , ok :: Bool
+    , rev :: String
+    } deriving (Show, Generic)
 
-postSession = client couchdbAPI
+instance ToJSON DbResponse 
+instance FromJSON DbResponse
 
-data Ok = Ok { ok :: Bool } deriving (Show, Generic)
-
-instance ToJSON Ok
-instance FromJSON Ok
-
-data Credentials = Credentials
-    { name :: String
-    , password :: String } deriving (Show, Generic)
-
-instance ToJSON Credentials
-instance FromJSON Credentials
-
-authenticate = do
-    response <- postSession $ Credentials "invoices" "invoices"
-    let headers = getHeaders . getHeadersHList $ response
-    return $ parseHeaders headers 
+putDoc :: ToJSON a => ByteString -> ByteString -> a -> Maybe ByteString -> IO DbResponse
+putDoc db docId entity rev = do 
+    resp <- httpJSON req
+    let responseBody = getResponseBody resp
+    return responseBody
     where
-        parseHeaders [] = Nothing 
-        parseHeaders [(_, cookie)] = 
-            let extract = BS.unpack . snd 
-                findSetCookie = find $ (==) "Set-Cookie" . fst
-            in fmap extract $ findSetCookie $ parseCookies cookie
-        parseHeaders _ = Nothing
+        req = 
+            setRequestBodyJSON entity 
+            . setRequestHeader "If-Match" (maybeToList rev)
+            . setRequestPath path 
+            . setRequestMethod "PUT" $ baseReq
+        path = BS.concat ["/", db, "/", docId]
+
+postDoc :: ToJSON a => ByteString -> a -> IO DbResponse
+postDoc db entity = do 
+    resp <- httpJSON req
+    let responseBody = getResponseBody resp
+    return responseBody
+    where
+        req = 
+            setRequestBodyJSON entity 
+            . setRequestPath path 
+            . setRequestMethod "POST" $ baseReq
+        path = BS.concat ["/", db]
+
+getDoc :: FromJSON a => ByteString -> ByteString ->  IO a
+getDoc db docId = do 
+    resp <- httpJSON req 
+    return $ getResponseBody resp 
+    where 
+        req = 
+            setRequestPath path 
+            . setRequestMethod "GET" $ baseReq
+        path = BS.concat ["/", db, "/", docId]

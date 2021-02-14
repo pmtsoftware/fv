@@ -20,6 +20,7 @@ executable web-server
   build-depends:        base ^>=4.14.1.0
                         , servant-server ^>=0.18.2
                         , servant-client ^>=0.18.2
+                        , http-conduit ^>=2.3.7
                         , servant
                         , cookie
                         , bytestring

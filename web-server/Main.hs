@@ -21,7 +21,7 @@ type InvoiceAPI =
 
 data Invoice = Invoice 
     { _id :: String 
-    , _rev :: String 
+    , _rev :: String
     , number :: String 
     , issue_date :: String 
     , supply_date :: String 
@@ -39,6 +39,27 @@ data Invoice = Invoice
     , payment :: String 
     , items :: [Item]
     } deriving (Show, Generic)
+
+dummyInvoice = Invoice 
+    { _id = "TEST" 
+    , _rev = ""
+    , number = "1" 
+    , issue_date = "01-01-2021" 
+    , supply_date = "01-01-2021" 
+    , gross_value = 123 
+    , net_value = 144
+    , remarks = "" 
+    , sellerName = "PMTS" 
+    , sellerVatin = "1234567" 
+    , sellerAddress1 = "Paczkow ul. Armi Krajowej 12" 
+    , sellerAddress2 = "" 
+    , buyerName = "Microsoft Inc." 
+    , buyerVatin = "7654321" 
+    , buyerAddress1 = "Redmont USA" 
+    , buyerAddress2 = "" 
+    , payment = "Cash" 
+    , items = []
+    }
 
 instance ToJSON Invoice
 instance FromJSON Invoice
