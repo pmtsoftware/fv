@@ -1,5 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module CouchdbClient where
 
@@ -26,15 +27,33 @@ data DbResponse = DbResponse
 instance ToJSON DbResponse 
 instance FromJSON DbResponse
 
-putDoc :: ToJSON a => ByteString -> ByteString -> a -> Maybe ByteString -> IO DbResponse
-putDoc db docId entity rev = do 
+data DbViewResponse = DbViewResponse 
+    { offset :: Int 
+    , rows :: [DbKeyValue] 
+    , total_rows :: Int
+    }
+    deriving (Show, Generic)
+
+data DbKeyValue = DbKeyValue 
+    { id :: String
+    , key :: String
+    , value :: String
+    } deriving (Show, Generic)
+
+instance ToJSON DbKeyValue
+instance FromJSON DbKeyValue
+
+instance ToJSON DbViewResponse
+instance FromJSON DbViewResponse
+
+putDoc :: ToJSON a => ByteString -> ByteString -> a -> IO DbResponse
+putDoc db docId entity = do 
     resp <- httpJSON req
     let responseBody = getResponseBody resp
     return responseBody
     where
         req = 
             setRequestBodyJSON entity 
-            . setRequestHeader "If-Match" (maybeToList rev)
             . setRequestPath path 
             . setRequestMethod "PUT" $ baseReq
         path = BS.concat ["/", db, "/", docId]
@@ -60,3 +79,13 @@ getDoc db docId = do
             setRequestPath path 
             . setRequestMethod "GET" $ baseReq
         path = BS.concat ["/", db, "/", docId]
+
+getView :: ByteString -> ByteString -> ByteString -> IO DbViewResponse
+getView db doc view = do 
+    resp <- httpJSON req 
+    return $ getResponseBody resp 
+    where 
+        req = 
+            setRequestPath path 
+            . setRequestMethod "GET" $ baseReq 
+        path = BS.concat ["/", db, "/_design/", doc, "/_view/", view]
