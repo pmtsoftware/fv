@@ -1,7 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-
 module CouchdbClient where
 
 import Network.HTTP.Simple
@@ -11,6 +7,8 @@ import Data.Maybe (maybeToList)
 import GHC.Generics
 import Data.Aeson 
 import Control.Monad.IO.Class (MonadIO)
+import Polysemy
+import Polysemy.Reader
 
 baseReq = 
     setRequestBasicAuth "fv" "fv" 
@@ -45,6 +43,21 @@ instance FromJSON DbKeyValue
 
 instance ToJSON DbViewResponse
 instance FromJSON DbViewResponse
+
+type Db = ByteString
+type DocId = ByteString
+data CouchDb m a where
+    StoreDoc :: (ToJSON a ) => Db -> DocId -> a -> CouchDb m ()
+
+makeSem ''CouchDb
+
+runCouchDb :: Members '[Embed IO, Reader String] r => Sem (CouchDb ': r) a -> Sem r a 
+runCouchDb = interpret $ \case 
+    StoreDoc db docId doc -> do 
+        response <- embed $ putDoc db docId doc
+        return ()    
+
+readInt = read @Int
 
 putDoc :: ToJSON a => ByteString -> ByteString -> a -> IO DbResponse
 putDoc db docId entity = do 

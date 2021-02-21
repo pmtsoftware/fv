@@ -16,11 +16,28 @@ extra-source-files:  CHANGELOG.md
 executable web-server
   main-is:             Main.hs
   other-modules:       CouchdbClient
+  ghc-options: -O2 -flate-specialise -fspecialise-aggressively
+  default-extensions:
+          DataKinds
+        , FlexibleContexts
+        , GADTs
+        , LambdaCase
+        , PolyKinds
+        , RankNTypes
+        , ScopedTypeVariables
+        , TypeApplications
+        , TypeOperators
+        , TypeFamilies
+        , OverloadedStrings
+        , DeriveGeneric
+        , DuplicateRecordFields
+        , TemplateHaskell
   -- other-extensions:
   build-depends:        base ^>=4.14.1.0
                         , servant-server ^>=0.18.2
                         , servant-client ^>=0.18.2
                         , http-conduit ^>=2.3.7
+                        , polysemy ^>=1.4
                         , servant
                         , cookie
                         , bytestring
