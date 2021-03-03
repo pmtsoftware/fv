@@ -15,7 +15,7 @@ extra-source-files:  CHANGELOG.md
 
 executable web-server
   main-is:             Main.hs
-  other-modules:       CouchdbClient
+  other-modules:       CouchdbClient, Configuration
   ghc-options: -O2 -flate-specialise -fspecialise-aggressively
   default-extensions:
           DataKinds

@@ -1,104 +1,102 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module CouchdbClient where
 
 import Network.HTTP.Simple
 import Data.ByteString (ByteString)
-import qualified Data.ByteString as BS 
+import qualified Data.ByteString as BS
 import Data.Maybe (maybeToList)
 import GHC.Generics
-import Data.Aeson 
+import Data.Aeson
 import Control.Monad.IO.Class (MonadIO)
 import Polysemy
 import Polysemy.Reader
 
-baseReq = 
-    setRequestBasicAuth "fv" "fv" 
-    . setRequestPort 5984 
-    . setRequestSecure False 
-    . setRequestHost "localhost" $ defaultRequest
+-- home modules
+import Configuration
 
-data DbResponse = DbResponse 
+createBaseReq :: Config -> Request
+createBaseReq Config {..} =
+    setRequestBasicAuth dbUser dbPassword
+    . setRequestPort dbPort
+    . setRequestSecure dbSecure
+    . setRequestHost dbHost $ defaultRequest
+
+data DbResponse = DbResponse
     { id :: String
     , ok :: Bool
     , rev :: String
     } deriving (Show, Generic)
 
-instance ToJSON DbResponse 
+instance ToJSON DbResponse
 instance FromJSON DbResponse
 
-data DbViewResponse = DbViewResponse 
-    { offset :: Int 
-    , rows :: [DbKeyValue] 
+data DbViewResponse a = DbViewResponse
+    { offset :: Int
+    , rows :: [DbKeyValue a]
     , total_rows :: Int
     }
     deriving (Show, Generic)
 
-data DbKeyValue = DbKeyValue 
+data DbKeyValue a = DbKeyValue
     { id :: String
     , key :: String
     , value :: String
+    , doc :: a
     } deriving (Show, Generic)
 
-instance ToJSON DbKeyValue
-instance FromJSON DbKeyValue
+instance ToJSON a => ToJSON (DbKeyValue a)
+instance FromJSON a => FromJSON (DbKeyValue a)
 
-instance ToJSON DbViewResponse
-instance FromJSON DbViewResponse
+instance ToJSON a => ToJSON (DbViewResponse a)
+instance FromJSON a => FromJSON (DbViewResponse a)
 
 type Db = ByteString
 type DocId = ByteString
+
+type Revision = String
+
 data CouchDb m a where
-    StoreDoc :: (ToJSON a ) => Db -> DocId -> a -> CouchDb m ()
+    StoreDoc :: (ToJSON a ) => Db -> DocId -> a -> CouchDb m (Maybe Revision)
+    GetDoc :: (FromJSON a) => Db -> DocId -> CouchDb m (Maybe a)
+    GetDocs :: (FromJSON a) => Db -> CouchDb m (Maybe (DbViewResponse a))
 
 makeSem ''CouchDb
 
-runCouchDb :: Members '[Embed IO, Reader String] r => Sem (CouchDb ': r) a -> Sem r a 
-runCouchDb = interpret $ \case 
-    StoreDoc db docId doc -> do 
-        response <- embed $ putDoc db docId doc
-        return ()    
-
-readInt = read @Int
-
-putDoc :: ToJSON a => ByteString -> ByteString -> a -> IO DbResponse
-putDoc db docId entity = do 
-    resp <- httpJSON req
-    let responseBody = getResponseBody resp
-    return responseBody
-    where
-        req = 
-            setRequestBodyJSON entity 
-            . setRequestPath path 
-            . setRequestMethod "PUT" $ baseReq
-        path = BS.concat ["/", db, "/", docId]
-
-postDoc :: ToJSON a => ByteString -> a -> IO DbResponse
-postDoc db entity = do 
-    resp <- httpJSON req
-    let responseBody = getResponseBody resp
-    return responseBody
-    where
-        req = 
-            setRequestBodyJSON entity 
-            . setRequestPath path 
-            . setRequestMethod "POST" $ baseReq
-        path = BS.concat ["/", db]
-
-getDoc :: FromJSON a => ByteString -> ByteString ->  IO a
-getDoc db docId = do 
-    resp <- httpJSON req 
-    return $ getResponseBody resp 
-    where 
-        req = 
-            setRequestPath path 
-            . setRequestMethod "GET" $ baseReq
-        path = BS.concat ["/", db, "/", docId]
-
-getView :: ByteString -> ByteString -> ByteString -> IO DbViewResponse
-getView db doc view = do 
-    resp <- httpJSON req 
-    return $ getResponseBody resp 
-    where 
-        req = 
-            setRequestPath path 
-            . setRequestMethod "GET" $ baseReq 
-        path = BS.concat ["/", db, "/_design/", doc, "/_view/", view]
+runCouchDb :: Members '[Embed IO, Reader Config] r => Sem (CouchDb ': r) a -> Sem r a
+runCouchDb = interpret $ \case
+    StoreDoc db docId doc -> do
+        cfg <- ask @Config
+        let path = BS.concat ["/", db, "/", docId]
+            baseReq = createBaseReq cfg
+            req =
+                setRequestBodyJSON doc
+                . setRequestPath path
+                . setRequestMethod "PUT" $ baseReq
+        response <- embed $ httpJSON @IO @DbResponse req
+        let body = getResponseBody response
+        pure $ Just (rev body)
+    GetDoc db docId -> do
+        cfg <- ask @Config
+        let path = BS.concat ["/", db, "/", docId]
+            request = setRequestPath path . setRequestMethod "GET" $ createBaseReq cfg
+        response <- embed $ httpBS @IO request
+        let body = getResponseBody response
+            status = getResponseStatusCode response
+        if status == 200 then
+            pure $ decodeStrict body
+        else
+            pure Nothing
+    GetDocs db -> do
+        cfg <- ask @Config
+        let path = BS.concat ["/", db, "/_all_docs/"]
+            request =
+                setRequestPath path
+                . setRequestQueryString [("include_docs", Just "true")] $ createBaseReq cfg
+        response <- embed $ httpBS @IO request
+        let status = getResponseStatusCode response
+            body = decodeStrict . getResponseBody $ response
+        if status == 200 then
+            pure body
+        else
+            pure Nothing
