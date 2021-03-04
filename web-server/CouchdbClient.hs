@@ -5,10 +5,8 @@ module CouchdbClient where
 import Network.HTTP.Simple
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import Data.Maybe (maybeToList)
 import GHC.Generics
 import Data.Aeson
-import Control.Monad.IO.Class (MonadIO)
 import Polysemy
 import Polysemy.Reader
 
