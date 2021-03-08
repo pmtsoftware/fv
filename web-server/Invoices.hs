@@ -4,6 +4,7 @@ import Polysemy
 import Data.Aeson
 import GHC.Generics
 import Data.Maybe (fromMaybe)
+import Data.ByteString (ByteString)
 
 import CouchdbClient
 
@@ -67,16 +68,26 @@ data Item = Item
 instance ToJSON  Item
 instance FromJSON Item
 
-create = undefined
+dbName :: ByteString
+dbName = "invoices"
 
-update = undefined
+create :: Members '[CouchDb] r => ByteString -> Invoice -> Sem r (Maybe String)
+create id doc = do
+    rev <- storeDoc dbName id doc
+    return rev
 
-get = undefined
+update :: Members '[CouchDb] r => ByteString -> Invoice -> Sem r (Maybe String)
+update id doc = do
+    rev <- storeDoc dbName id doc
+    return rev
 
-getAll = undefined
+get :: Members '[CouchDb] r => ByteString -> Sem r (Maybe Invoice)
+get id = do 
+    maybeDoc <- getDoc dbName id 
+    return maybeDoc
 
-getAll' :: Members '[CouchDb] r => Sem r [Invoice]
-getAll' = do
-    view <- getDocs "invoices"
+getAll :: Members '[CouchDb] r => Sem r [Invoice]
+getAll = do
+    view <- getDocs dbName
     let docs = fmap (fmap doc . rows) view
     return $ fromMaybe [] docs

@@ -36,6 +36,8 @@ server = getAll :<|> getById :<|> put :<|> delete
 invoicesAPI :: Proxy InvoiceAPI
 invoicesAPI = Proxy
 
+
+
 main :: IO ()
 main = do
     config <- loadYamlSettings @Config ["./app.yaml"] [] ignoreEnv

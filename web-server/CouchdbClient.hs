@@ -4,6 +4,7 @@ module CouchdbClient where
 
 import Network.HTTP.Simple
 import Data.ByteString (ByteString)
+import Data.ByteString.Char8 (pack)
 import qualified Data.ByteString as BS
 import GHC.Generics
 import Data.Aeson
@@ -53,6 +54,18 @@ data CouchDb m a where
     GetDocs :: (FromJSON a) => Db -> CouchDb m (Maybe (DbViewResponse a))
 
 makeSem ''CouchDb
+
+createBaseReq :: Config -> Request
+createBaseReq cfg = 
+    setRequestHost host 
+    . setRequestSecure isSecure 
+    . setRequestPort port 
+    . setRequestBasicAuth user pwd $ defaultRequest
+    where host = pack $ dbHost cfg
+          port = dbPort cfg 
+          isSecure = dbSecure cfg 
+          user = pack $ dbUser cfg 
+          pwd = pack $ dbPassword cfg
 
 runCouchDb :: Members '[Embed IO, Reader Request] r => Sem (CouchDb ': r) a -> Sem r a
 runCouchDb = interpret $ \case
