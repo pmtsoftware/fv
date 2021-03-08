@@ -13,13 +13,6 @@ import Polysemy.Reader
 -- home modules
 import Configuration
 
-createBaseReq :: Config -> Request
-createBaseReq Config {..} =
-    setRequestBasicAuth dbUser dbPassword
-    . setRequestPort dbPort
-    . setRequestSecure dbSecure
-    . setRequestHost dbHost $ defaultRequest
-
 data DbResponse = DbResponse
     { id :: String
     , ok :: Bool
@@ -61,12 +54,11 @@ data CouchDb m a where
 
 makeSem ''CouchDb
 
-runCouchDb :: Members '[Embed IO, Reader Config] r => Sem (CouchDb ': r) a -> Sem r a
+runCouchDb :: Members '[Embed IO, Reader Request] r => Sem (CouchDb ': r) a -> Sem r a
 runCouchDb = interpret $ \case
     StoreDoc db docId doc -> do
-        cfg <- ask @Config
+        baseReq <- ask @Request
         let path = BS.concat ["/", db, "/", docId]
-            baseReq = createBaseReq cfg
             req =
                 setRequestBodyJSON doc
                 . setRequestPath path
@@ -75,9 +67,9 @@ runCouchDb = interpret $ \case
         let body = getResponseBody response
         pure $ Just (rev body)
     GetDoc db docId -> do
-        cfg <- ask @Config
+        baseReq <- ask @Request
         let path = BS.concat ["/", db, "/", docId]
-            request = setRequestPath path . setRequestMethod "GET" $ createBaseReq cfg
+            request = setRequestPath path . setRequestMethod "GET" $ baseReq
         response <- embed $ httpBS @IO request
         let body = getResponseBody response
             status = getResponseStatusCode response
@@ -86,11 +78,11 @@ runCouchDb = interpret $ \case
         else
             pure Nothing
     GetDocs db -> do
-        cfg <- ask @Config
+        baseReq <- ask @Request
         let path = BS.concat ["/", db, "/_all_docs/"]
             request =
                 setRequestPath path
-                . setRequestQueryString [("include_docs", Just "true")] $ createBaseReq cfg
+                . setRequestQueryString [("include_docs", Just "true")] $ baseReq
         response <- embed $ httpBS @IO request
         let status = getResponseStatusCode response
             body = decodeStrict . getResponseBody $ response

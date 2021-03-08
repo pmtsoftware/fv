@@ -8,8 +8,10 @@ import Servant
 import GHC.Generics
 import Data.Aeson
 import Network.Wai.Handler.Warp (run)
+import Data.Yaml.Config
 
 import Invoices
+import Configuration
 
 -- GET      /invoices 
 -- GET      /invoices/:id 
@@ -35,6 +37,8 @@ invoicesAPI :: Proxy InvoiceAPI
 invoicesAPI = Proxy
 
 main :: IO ()
-main = run 8081 app 
+main = do
+    config <- loadYamlSettings @Config ["./app.yaml"] [] ignoreEnv
+    run 8081 app 
     where 
         app = serve invoicesAPI server

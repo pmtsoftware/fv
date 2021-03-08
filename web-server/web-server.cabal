@@ -38,6 +38,7 @@ executable web-server
                         , servant-client ^>=0.18.2
                         , http-conduit ^>=2.3.7
                         , polysemy ^>=1.4
+                        , yaml ^>=0.11.5
                         , servant
                         , cookie
                         , bytestring

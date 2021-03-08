@@ -1,19 +1,16 @@
 module Configuration where 
 
 import Data.ByteString (ByteString)
+import GHC.Generics
+import Data.Aeson
 
 data Config = Config
-    { dbHost :: ByteString 
+    { dbHost :: String 
     , dbPort :: Int 
     , dbSecure :: Bool 
-    , dbUser :: ByteString 
-    , dbPassword :: ByteString
-    }
+    , dbUser :: String 
+    , dbPassword :: String
+    } deriving (Show, Generic)
 
-defaultConfig = Config 
-    { dbHost = "localhost"
-    , dbPort = 5984
-    , dbSecure = False
-    , dbUser = "fv"
-    , dbPassword = "fv" 
-    }
+instance FromJSON Config
+instance ToJSON Config
