@@ -44,5 +44,6 @@ executable web-server
                         , bytestring
                         , aeson 
                         , warp
+                        , mtl
   -- hs-source-dirs:
   default-language:    Haskell2010

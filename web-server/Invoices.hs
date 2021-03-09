@@ -1,10 +1,12 @@
 module Invoices where
 
 import Polysemy
+import Polysemy.Error
 import Data.Aeson
 import GHC.Generics
 import Data.Maybe (fromMaybe)
 import Data.ByteString (ByteString)
+import Data.ByteString.Char8 (pack)
 
 import CouchdbClient
 
@@ -71,20 +73,28 @@ instance FromJSON Item
 dbName :: ByteString
 dbName = "invoices"
 
-create :: Members '[CouchDb] r => ByteString -> Invoice -> Sem r (Maybe String)
+delete :: Members '[CouchDb] r => String -> Sem r ()
+delete id = do 
+    return ()
+
+create :: Members '[CouchDb] r => String -> Invoice -> Sem r String
 create id doc = do
-    rev <- storeDoc dbName id doc
+    rev <- storeDoc dbName (pack id) Nothing doc
     return rev
 
-update :: Members '[CouchDb] r => ByteString -> Invoice -> Sem r (Maybe String)
-update id doc = do
-    rev <- storeDoc dbName id doc
-    return rev
+update :: Members '[CouchDb] r => String -> String -> Invoice -> Sem r String
+update id rev doc = do
+    rev' <- storeDoc dbName (pack id) (Just rev) doc
+    return rev'
 
-get :: Members '[CouchDb] r => ByteString -> Sem r (Maybe Invoice)
-get id = do 
-    maybeDoc <- getDoc dbName id 
-    return maybeDoc
+newtype InvoiceNotFound = InvoiceNotFound String
+
+get :: Members '[CouchDb, Error InvoiceNotFound] r => String -> Sem r Invoice
+get docId = do 
+    maybeDoc <- getDoc dbName (pack docId)
+    case  maybeDoc of 
+        Just doc -> return doc 
+        Nothing -> throw $ InvoiceNotFound docId 
 
 getAll :: Members '[CouchDb] r => Sem r [Invoice]
 getAll = do
