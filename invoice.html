@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pl-PL">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            line-height: 1.4;
+        }
+        hr {
+            height: 1px;
+            background-color: #f1f1f1;
+            border: none;
+        }
+        .bottom-border {
+            border-bottom: 1px solid #f1f1f1;
+        }
+        .content {
+            padding-top: 32px;
+            max-width: 896px;
+            margin: auto;
+        }
+        .section {
+            margin-bottom: 32px;
+        }
+        .row {
+            display: flex;
+        }
+        .row-item {
+            width: 400px;
+            margin-right: 64px;
+        }
+        .rtl {
+            flex-direction: row-reverse;
+        }
+        .header {
+            font-size: 1.6em;
+            font-weight: bold;
+        }
+        .highlight {
+            background-color: #f1f1f1;
+            padding: 16px;
+        }
+        .total {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .table {
+            width: 100%;
+        }
+        .table thead {
+            background-color: #f1f1f1;
+        }
+        .col-no {
+            width: 48px;
+        }
+        .col-net-val {
+            width: 128px;
+        }
+        .col-vat {
+            width: 64px;
+        }
+        .col-vat-val {
+            width: 128px;
+        }
+        .col-val {
+            width: 128px;
+        }
+        .right-text {
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+  <main>
+    <div class="content">
+        <div class="header section">
+            <span>Faktura VAT w PLN nr L0001/2022</span>
+        </div>
+        <div class="row section">
+            <div class="row-item">
+                <div>Sprzedawca</div>
+                <div>PMTS Przemysław Matuszny</div>
+                <div>ulica Pomianów Dolny 29a</div>
+                <div>57-220 Ziębice</div>
+                <div>NIP: 8871710789</div>
+            </div>
+            <div class="row-item">
+                <div>Kupujący</div>
+                <div>Link Group sp. z o.o.</div>
+                <div>ulica Warszawska</div>
+                <div>22-222 Warszawa</div>
+                <div>NIP: 1234567891</div>
+            </div>
+        </div>
+        <hr class="section" />
+        <div class="row section">
+            <div class="row-item highlight">
+                <div class="total">Razem do zapłaty: 42 458,00 PLN</div>
+                <div>nr konta  61 1090 2398 0000 0001 3451 9539</div>
+            </div>
+            <div class="row-item">
+                <div>Data wystawienia: 30.06.2022</div>
+                <div>Data sprzedaży: 30.06.2022</div>
+                <div>Termin zapłaty: 14.07.2022</div>
+                <div>Sposób zapłaty: przelew</div>
+            </div>
+        </div>
+        <hr class="section" />
+        <div class="section">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <td class="col-no">L.p.</td>
+                        <td>Nazwa usługi/towaru</td>
+                        <td class="col-net-val right-text">Wartość netto</td>
+                        <td class="col-vat right-text">VAT %</td>
+                        <td class="col-vat-val right-text">Wartość VAT</td>
+                        <td class="col-val right-text">Wartość brutto</td>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Usługi programistyczne</td>
+                        <td class="right-text">1000,00</td>
+                        <td class="right-text">23</td>
+                        <td class="right-text">230,00</td>
+                        <td class="right-text">1230,00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="row rtl">
+            <table>
+                <tr>
+                    <td class="bottom-border">Razem PLN</td>
+                    <td class="col-net-val right-text bottom-border">1000,00</td>
+                    <td class="col-vat right-text bottom-border"></td>
+                    <td class="col-vat-val right-text bottom-border">230,00</td>
+                    <td class="col-val right-text bottom-border">1230,00</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td class="col-net-val right-text">1000,00</td>
+                    <td class="col-vat right-text">23</td>
+                    <td class="col-vat-val right-text">230,00</td>
+                    <td class="col-val right-text">1230,00</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+  </main>
+</body>
+</html>
